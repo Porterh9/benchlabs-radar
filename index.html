@@ -1,147 +1,782 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BenchLabs Radar Setup</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk Radar Setup</title>
+<meta name="description" content="Point your BenchLabs Desk Radar at the right patch of sky.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Semi+Condensed:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  body{font-family:-apple-system,sans-serif;background:#0a0a0a;color:#0f0;padding:24px 20px;max-width:480px;margin:auto;line-height:1.5;}
-  h1{color:#00AAFF;font-size:26px;margin:0 0 6px 0;}
-  p.sub{color:#0a0;font-size:15px;margin:0 0 8px 0;}
-  .card{background:#111;border:1px solid #0a3;border-radius:12px;padding:20px;margin-top:20px;}
-  .card h2{color:#00AAFF;margin:0 0 4px 0;font-size:18px;}
-  .card p.hint{color:#0a0;font-size:14px;margin:0 0 14px 0;line-height:1.4;}
-  .card ol{color:#0a0;font-size:14px;line-height:1.6;padding-left:20px;margin:0 0 10px 0;}
-  .card a{color:#00AAFF;}
-  label{display:block;margin-top:16px;font-size:15px;font-weight:bold;letter-spacing:.3px;}
-  input,select{width:100%;padding:13px;margin-top:7px;background:#000;color:#0f0;
-    border:1px solid #0a5;border-radius:8px;box-sizing:border-box;font-size:17px;font-family:inherit;}
-  input::placeholder{color:#064;}
-  button{width:100%;background:#0f0;color:#000;padding:16px;border:none;border-radius:8px;
-    font-weight:bold;font-size:18px;margin-top:22px;letter-spacing:.3px;}
-  button:disabled{opacity:.5;}
-  small{color:#0a0;display:block;margin-top:10px;font-size:13px;line-height:1.5;}
-  #status{margin-top:14px;font-size:14px;padding:10px;border-radius:8px;display:none;}
-  #status.ok{display:block;background:#052;color:#7f7;}
-  #status.err{display:block;background:#500;color:#f77;}
+  :root{
+    /* Scope field: near-black with a green cast, not neutral grey */
+    --scope:#050a08;
+    --scope-raised:#0a1310;
+    /* P1 phosphor — desaturated, how a real scope reads, not acid green */
+    --phosphor:#5be89b;
+    --phosphor-mid:#2f9c67;
+    --phosphor-dim:#1a5c3c;
+    /* Sectional-chart airspace magenta. Marks YOU, and marks ACT. Nothing else. */
+    --airspace:#e85bc4;
+    --airspace-deep:#8f2d70;
+    /* Chart-paper cream for reading copy */
+    --paper:#e8e4d9;
+    --paper-soft:#9fa39b;
+    /* Aviation amber, for the one warning that matters */
+    --caution:#f5a623;
+    --rule:#16241d;
+
+    --f-cond:"Barlow Semi Condensed",system-ui,sans-serif;
+    --f-text:"Barlow",system-ui,sans-serif;
+    --f-data:"JetBrains Mono",ui-monospace,monospace;
+  }
+
+  *{box-sizing:border-box}
+
+  html,body{margin:0;padding:0}
+
+  body{
+    background:var(--scope);
+    color:var(--paper);
+    font-family:var(--f-text);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{
+    max-width:460px;
+    margin:0 auto;
+    padding:0 16px 72px;
+  }
+
+  /* ---------- Scope ---------- */
+
+  .scope{
+    position:relative;
+    margin:28px auto 0;
+    width:100%;
+    max-width:300px;
+    aspect-ratio:1;
+  }
+  .scope canvas{width:100%;height:100%;display:block}
+
+  .scope-readout{
+    margin-top:14px;
+    text-align:center;
+    font-family:var(--f-data);
+    font-size:13px;
+    letter-spacing:.02em;
+    color:var(--airspace);
+    min-height:1.4em;
+  }
+  .scope-readout[data-empty="true"]{color:var(--paper-soft)}
+
+  .scope-note{
+    text-align:center;
+    font-family:var(--f-cond);
+    font-size:13px;
+    color:var(--paper-soft);
+    margin-top:2px;
+  }
+
+  /* ---------- Masthead ---------- */
+
+  .mast{margin:40px 0 0}
+
+  .mast h1{
+    font-family:var(--f-cond);
+    font-weight:600;
+    font-size:clamp(30px,8.5vw,40px);
+    line-height:1.04;
+    letter-spacing:-.012em;
+    margin:0 0 14px;
+    color:var(--paper);
+  }
+
+  .mast p{margin:0 0 12px;max-width:46ch;color:var(--paper-soft)}
+  .mast p.lead{color:var(--paper)}
+
+  /* ---------- Flight strips ---------- */
+
+  .strip{
+    display:grid;
+    grid-template-columns:4px 1fr;
+    gap:0 16px;
+    margin-top:30px;
+    padding-top:22px;
+    border-top:1px solid var(--rule);
+  }
+
+  .strip-mark{
+    background:var(--phosphor-dim);
+    border-radius:1px;
+    transition:background .22s ease;
+  }
+  .strip[data-done="true"] .strip-mark{background:var(--phosphor)}
+
+  .strip h2{
+    font-family:var(--f-cond);
+    font-weight:600;
+    font-size:19px;
+    letter-spacing:.005em;
+    margin:0 0 4px;
+    color:var(--paper);
+  }
+
+  .strip .hint{
+    font-size:14px;
+    color:var(--paper-soft);
+    margin:0 0 14px;
+    max-width:44ch;
+  }
+
+  /* ---------- Controls ---------- */
+
+  label.fld{
+    display:block;
+    font-family:var(--f-cond);
+    font-size:14px;
+    color:var(--paper-soft);
+    margin-bottom:5px;
+  }
+
+  input[type=text]{
+    width:100%;
+    padding:13px 14px;
+    background:var(--scope-raised);
+    border:1px solid var(--rule);
+    border-radius:3px;
+    color:var(--phosphor);
+    font-family:var(--f-data);
+    font-size:16px;
+    letter-spacing:.01em;
+  }
+  input[type=text]::placeholder{color:#3a4a42}
+  input[type=text]:focus{
+    outline:2px solid var(--phosphor-mid);
+    outline-offset:1px;
+    border-color:transparent;
+  }
+  input[type=text][aria-invalid="true"]{border-color:var(--caution)}
+
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  button{
+    font-family:var(--f-cond);
+    font-size:17px;
+    font-weight:600;
+    letter-spacing:.01em;
+    border-radius:3px;
+    border:1px solid transparent;
+    cursor:pointer;
+  }
+  button:focus-visible{outline:2px solid var(--paper);outline-offset:2px}
+
+  .btn-locate{
+    width:100%;
+    padding:15px;
+    background:var(--airspace);
+    color:#140710;
+  }
+  .btn-locate:hover{background:#f072d2}
+  .btn-locate:disabled{background:var(--airspace-deep);color:#d9bed1;cursor:default}
+
+  /* Green, not magenta. The two colours carry different meanings and both
+     are earned: magenta is "you and your position" (the scope crosshair and
+     the locate button), phosphor green is "the radar" (this button commits
+     the settings to the device, and green is the device's own language).
+     Two solid magenta buttons competed for the same attention. */
+  .btn-send{
+    width:100%;
+    padding:17px;
+    background:var(--phosphor);
+    color:#05140c;
+    font-size:18px;
+  }
+  .btn-send:hover{background:#7cf0b1}
+  .btn-send:disabled{
+    background:transparent;
+    border-color:var(--rule);
+    color:#4c5b53;
+    cursor:default;
+  }
+
+  /* One-tap correction offered inside the longitude warning. */
+  .btn-fix{
+    margin-top:10px;
+    padding:9px 14px;
+    background:transparent;
+    border-color:var(--caution);
+    color:var(--caution);
+    font-size:15px;
+  }
+  .btn-fix:hover{background:rgba(245,166,35,.12)}
+
+  .or{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:16px 0;
+    font-family:var(--f-cond);
+    font-size:13px;
+    color:#4c5b53;
+  }
+  .or::before,.or::after{content:"";height:1px;background:var(--rule);flex:1}
+
+  /* Radius: mono because these are measured values, not labels.
+     Three columns rather than six across — at phone width six made "100 nm"
+     wrap onto a second line and broke the row's rhythm, and these are
+     bigger tap targets besides. */
+  .rng{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .rng button{
+    padding:13px 4px;
+    background:var(--scope-raised);
+    border-color:var(--rule);
+    color:var(--paper-soft);
+    font-family:var(--f-data);
+    font-size:14px;
+    font-weight:400;
+    white-space:nowrap;
+  }
+  .rng button[aria-pressed="true"]{
+    background:rgba(91,232,155,.1);
+    border-color:var(--phosphor-mid);
+    color:var(--phosphor);
+  }
+
+  /* ---------- Messages ---------- */
+
+  .msg{
+    display:flex;
+    gap:9px;
+    font-size:14px;
+    line-height:1.45;
+    margin-top:12px;
+    padding:11px 13px;
+    border-radius:3px;
+    border-left:2px solid;
+  }
+  .msg b{font-weight:500}
+  .msg.caution{
+    border-color:var(--caution);
+    background:rgba(245,166,35,.07);
+    color:#f0d9ad;
+  }
+  .msg.ok{
+    border-color:var(--phosphor-mid);
+    background:rgba(91,232,155,.06);
+    color:#bfe8d1;
+  }
+  .msg[hidden]{display:none}
+
+  details.where{margin-top:12px}
+  details.where summary{
+    font-family:var(--f-cond);
+    font-size:14px;
+    color:var(--phosphor);
+    cursor:pointer;
+  }
+  details.where summary:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
+  details.where ol{
+    margin:10px 0 0;
+    padding-left:20px;
+    font-size:14px;
+    color:var(--paper-soft);
+  }
+  details.where li{margin-bottom:5px}
+  details.where code{
+    font-family:var(--f-data);
+    font-size:13px;
+    color:var(--phosphor);
+  }
+
+  .send-zone{
+    margin-top:34px;
+    padding-top:26px;
+    border-top:1px solid var(--rule);
+  }
+
+  .fallback{
+    margin-top:14px;
+    font-size:13px;
+    color:var(--paper-soft);
+  }
+  .fallback a{color:var(--phosphor)}
+  .fallback .url{
+    display:block;
+    margin-top:7px;
+    padding:10px 12px;
+    background:var(--scope-raised);
+    border:1px solid var(--rule);
+    border-radius:3px;
+    font-family:var(--f-data);
+    font-size:12px;
+    color:var(--phosphor);
+    word-break:break-all;
+  }
+
+  /* ---------- Footer ---------- */
+
+  footer{
+    margin-top:44px;
+    padding-top:24px;
+    border-top:1px solid var(--rule);
+    font-size:13px;
+    line-height:1.6;
+    color:#6b736c;
+  }
+  footer a{color:var(--phosphor-mid)}
+  footer a:hover{color:var(--phosphor)}
+  footer p{margin:0 0 11px}
+  footer .credit{font-size:12px;color:#565e58}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+  }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<h1>BenchLabs Radar</h1>
-<p class="sub">Finish setting up your desk radar.</p>
+  <!-- The scope is the hero: it shows what the radar is currently set to
+       look at, and its range rings respond to the radius chosen below. -->
+  <div class="scope">
+    <canvas id="scope" width="600" height="600" role="img"
+            aria-label="Radar coverage preview showing the selected search radius"></canvas>
+  </div>
+  <div class="scope-readout" id="readout" data-empty="true">no position set</div>
+  <p class="scope-note">Coverage preview &mdash; not live traffic</p>
 
-<div class="card">
-  <h2>1. Device IP</h2>
-  <p class="hint">
-    Enter the IP address shown on the Radar.
-    It should look something like <code>192.168.1.42</code>.
-    Make sure your phone or computer is on the same WiFi network as the radar (not
-    cellular data, not a different network).
-  </p>
-  <label>Device IP address</label>
-  <input id="deviceIp" placeholder="e.g. 192.168.1.42" inputmode="decimal" autocapitalize="off" autocorrect="off">
+  <header class="mast">
+    <h1>Point your radar at the right patch of sky.</h1>
+    <p class="lead">Your Desk Radar guesses where it is from your internet
+      connection. That guess is usually close, but it can land on your
+      provider's equipment in another town &mdash; which is why some people
+      see the wrong city's aircraft.</p>
+    <p>Set your exact position here and it stays set. Most people never need
+      this page.</p>
+  </header>
+
+  <!-- Step markers are flight-strip status bars: the left edge lights when
+       that strip is complete. Real state, not decoration. -->
+  <section class="strip" id="strip-ip" data-done="false">
+    <div class="strip-mark" aria-hidden="true"></div>
+    <div>
+      <h2>Device address</h2>
+      <p class="hint">Your radar's address on your home network. It only
+        works from a phone or computer on that same WiFi.</p>
+      <label class="fld" for="ip">Address</label>
+      <input type="text" id="ip" inputmode="decimal" autocomplete="off"
+             autocapitalize="off" spellcheck="false"
+             placeholder="192.168.1.42" aria-describedby="ip-msg">
+      <div class="msg caution" id="ip-msg" hidden></div>
+      <details class="where">
+        <summary>Where do I find it?</summary>
+        <ol>
+          <li>Tap the gear icon at the bottom-left of the radar screen.</li>
+          <li>Tap <b>Info &amp; Credits</b>.</li>
+          <li>The screen shows an address like
+            <code>http://192.168.1.42/settings</code> &mdash; you only need
+            the numbers.</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <section class="strip" id="strip-loc" data-done="false">
+    <div class="strip-mark" aria-hidden="true"></div>
+    <div>
+      <h2>Your location</h2>
+      <p class="hint">The centre of the radar. Letting your browser supply it
+        is accurate to a few metres and takes one tap.</p>
+
+      <button class="btn-locate" id="locate" type="button">Use my exact location</button>
+      <div class="msg" id="loc-msg" hidden></div>
+
+      <div class="or">or type it</div>
+
+      <div class="pair">
+        <div>
+          <label class="fld" for="lat">Latitude</label>
+          <input type="text" id="lat" inputmode="decimal" autocomplete="off"
+                 spellcheck="false" placeholder="43.2081">
+        </div>
+        <div>
+          <label class="fld" for="lon">Longitude</label>
+          <input type="text" id="lon" inputmode="decimal" autocomplete="off"
+                 spellcheck="false" placeholder="-71.5375">
+        </div>
+      </div>
+
+      <div class="msg caution" id="minus-msg" hidden>
+        <div>
+          <b>Check that minus sign.</b> A positive longitude puts your radar
+          in central Asia, where it will find no aircraft at all. Across the
+          Americas this number starts with a minus.<br>
+          <button type="button" class="btn-fix" id="fixlon">Change it</button>
+        </div>
+      </div>
+
+      <details class="where">
+        <summary>How do I look these up?</summary>
+        <ol>
+          <li>Open Google Maps and find your home.</li>
+          <li>Press and hold on it (or right-click on a computer).</li>
+          <li>Two numbers appear. Copy the first into Latitude and the
+            second into Longitude.</li>
+          <li>Across the Americas the second number is <b>negative</b>.
+            Keep the minus sign.</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <section class="strip" data-done="true">
+    <div class="strip-mark" aria-hidden="true"></div>
+    <div>
+      <h2>Search radius</h2>
+      <p class="hint">How far out to look. Smaller shows fewer, closer
+        aircraft on a less crowded screen.</p>
+      <div class="rng" id="rng" role="group" aria-label="Search radius in nautical miles">
+        <button type="button" data-r="10" aria-pressed="false">10 nm</button>
+        <button type="button" data-r="15" aria-pressed="true">15 nm</button>
+        <button type="button" data-r="25" aria-pressed="false">25 nm</button>
+        <button type="button" data-r="40" aria-pressed="false">40 nm</button>
+        <button type="button" data-r="60" aria-pressed="false">60 nm</button>
+        <button type="button" data-r="100" aria-pressed="false">100 nm</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="send-zone">
+    <button class="btn-send" id="send" type="button" disabled>Send to my radar</button>
+    <div class="msg ok" id="send-msg" hidden></div>
+    <p class="fallback" id="fallback" hidden>
+      If that button doesn't open anything, your browser may be blocking the
+      jump to your home network. Paste this into a new tab instead:
+      <span class="url" id="fallback-url"></span>
+    </p>
+    <p class="fallback" id="settings-link" hidden>
+      Everything else &mdash; weather station, WiFi &mdash; lives on
+      <a href="#" id="settings-a">your radar's settings page</a>.
+    </p>
+  </div>
+
+  <footer>
+    <p>Your radar reaches these services directly from your own network.
+      BenchLabs has no account, no cloud service, and receives no data from
+      your device.</p>
+    <p class="credit">Flight data contains information from
+      <a href="https://adsb.lol">adsb.lol</a>, made available under the
+      <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database
+      License (ODbL)</a>. Weather from NOAA / National Weather Service
+      Aviation Weather Center. Approximate location from ipwho.is. Airline
+      names are the trademarks of their respective owners; no affiliation or
+      endorsement is implied. For entertainment only &mdash; not for
+      navigation or flight planning.</p>
+  </footer>
 </div>
-
-<div class="card">
-  <h2>2. Search Radius</h2>
-  <p class="hint">How far out (in nautical miles) should the radar look for aircraft?</p>
-  <label>Radius</label>
-  <select id="radius">
-    <option value="5">5 nm</option>
-    <option value="10">10 nm</option>
-    <option value="15" selected>15 nm</option>
-    <option value="25">25 nm</option>
-    <option value="40">40 nm</option>
-    <option value="60">60 nm</option>
-    <option value="100">100 nm</option>
-  </select>
-</div>
-
-<div class="card">
-  <h2>3. OpenSky Account (optional)</h2>
-  <p class="hint">
-    Skip this and the radar keeps tracking at a basic refresh rate
-    (updates every ~4 minutes). Add these for live updates every
-    15 seconds instead. Free, takes about 2 minutes:
-  </p>
-  <ol>
-    <li>Go to <a href="https://opensky-network.org/" target="_blank" rel="noopener">opensky-network.org</a> and log in, or register a free account if you don't have one yet.</li>
-    <li>Once logged in, find your <b>Account</b> page (top menu) and look for the <b>API Client</b> section.</li>
-    <li>Create a new API client and download the file. From there copy the <b>Client ID</b> and <b>Client Secret</b> it gives you.</li>
-    <li>Paste them below.</li>
-  </ol>
-  <p class="hint">OpenSky restructured their site in 2026 — if a step above doesn't match what you see, their Account page is the one to look for; the API Client option lives there.</p>
-  <p class="hint">If you've already entered your OpenSky account here before, it's saved on the device — you don't need to re-enter it unless you want to switch accounts.</p>
-  <label>OpenSky Client ID</label>
-  <input id="clientId" placeholder="e.g. abcd1234-..." autocapitalize="off" autocorrect="off">
-  <label>OpenSky Client Secret</label>
-  <input id="clientSecret" type="password" placeholder="paste secret here">
-</div>
-
-<div class="card">
-  <h2>Switch Back to Basic Mode</h2>
-  <p class="hint">
-    Already have an OpenSky account saved on the device and want to remove it?
-    This switches the radar back to basic mode (updates every ~4 minutes,
-    no account needed) — useful if you're passing the radar along to someone else.
-  </p>
-  <button id="clearBtn" onclick="clearOpenSky()" style="background:#333;color:#0f0;">Switch to Basic Mode</button>
-</div>
-
-<button id="saveBtn" onclick="saveConfig()">Save to Device</button>
-<div id="status"></div>
-
-<small>This page talks directly to your radar over your local WiFi network — nothing is sent anywhere else. Tapping "Save to Device" will briefly leave this page and open the radar's own confirmation screen; that's expected.</small>
 
 <script>
-function saveConfig() {
-  const ip = document.getElementById('deviceIp').value.trim();
-  const radius = document.getElementById('radius').value;
-  const clientId = document.getElementById('clientId').value.trim();
-  const clientSecret = document.getElementById('clientSecret').value.trim();
-  const status = document.getElementById('status');
+(function(){
+  "use strict";
 
-  if (!ip) {
-    status.className = 'err';
-    status.textContent = 'Enter the device IP address shown on the radar first.';
-    return;
+  var el = function(id){ return document.getElementById(id); };
+  var ipIn = el("ip"), latIn = el("lat"), lonIn = el("lon");
+  var readout = el("readout"), sendBtn = el("send");
+  var radius = 15;
+
+  /* ---------- Scope ---------- */
+
+  var cv = el("scope"), ctx = cv.getContext("2d");
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+  var S = 600;
+  cv.width = S * DPR; cv.height = S * DPR;
+  ctx.scale(DPR, DPR);
+
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var sweep = 0, placed = false;
+
+  /* Fixed pseudo-blips. Deliberately static and sparse: this is a coverage
+     preview, and animating them would imply a live feed the page does not
+     have. The caption says so too. */
+  var blips = [
+    {a:0.42, r:0.33}, {a:1.95, r:0.68}, {a:3.31, r:0.49},
+    {a:4.60, r:0.80}, {a:5.52, r:0.26}, {a:2.68, r:0.91}
+  ];
+
+  function draw(){
+    var c = S/2, R = S*0.42;
+    ctx.clearRect(0,0,S,S);
+
+    /* range rings */
+    ctx.strokeStyle = "#1a5c3c";
+    ctx.lineWidth = 1;
+    for (var i=1; i<=3; i++){
+      ctx.beginPath();
+      ctx.arc(c, c, R*i/3, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    /* crosshair */
+    ctx.beginPath();
+    ctx.moveTo(c-R, c); ctx.lineTo(c+R, c);
+    ctx.moveTo(c, c-R); ctx.lineTo(c, c+R);
+    ctx.stroke();
+
+    /* ring labels in nautical miles — this is what makes the radius choice
+       legible rather than abstract */
+    ctx.fillStyle = "#2f9c67";
+    ctx.font = "500 15px 'JetBrains Mono', monospace";
+    ctx.textAlign = "left";
+    for (var k=1; k<=3; k++){
+      ctx.fillText(Math.round(radius*k/3) + "", c + 5, c - R*k/3 + 15);
+    }
+
+    /* blips */
+    ctx.fillStyle = "#2f9c67";
+    blips.forEach(function(b){
+      var x = c + Math.sin(b.a) * R * b.r;
+      var y = c - Math.cos(b.a) * R * b.r;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+    });
+
+    /* sweep — the only element that glows, because a phosphor trail
+       physically does */
+    if (!reduce){
+      var g = ctx.createLinearGradient(c, c,
+        c + Math.sin(sweep)*R, c - Math.cos(sweep)*R);
+      g.addColorStop(0, "rgba(91,232,155,0)");
+      g.addColorStop(1, "rgba(91,232,155,0.85)");
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "rgba(91,232,155,0.5)";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(c, c);
+      ctx.lineTo(c + Math.sin(sweep)*R, c - Math.cos(sweep)*R);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    /* your position: chart-airspace magenta, the one thing that is "you" */
+    ctx.strokeStyle = placed ? "#e85bc4" : "#1a5c3c";
+    ctx.lineWidth = placed ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(c-9, c); ctx.lineTo(c+9, c);
+    ctx.moveTo(c, c-9); ctx.lineTo(c, c+9);
+    ctx.stroke();
+    if (placed){
+      ctx.beginPath();
+      ctx.arc(c, c, 4, 0, Math.PI*2);
+      ctx.fillStyle = "#e85bc4";
+      ctx.fill();
+    }
   }
-  if ((clientId && !clientSecret) || (!clientId && clientSecret)) {
-    status.className = 'err';
-    status.textContent = 'Enter both the Client ID and Client Secret, or leave both blank.';
-    return;
+
+  function tick(){
+    sweep = (sweep + 0.013) % (Math.PI*2);
+    draw();
+    requestAnimationFrame(tick);
+  }
+  draw();
+  if (!reduce) requestAnimationFrame(tick);
+
+  /* ---------- Validation ---------- */
+
+  function validIp(v){
+    v = v.trim();
+    if (!v) return false;
+    if (/^[a-z0-9-]+\.local$/i.test(v)) return true;
+    var p = v.split(".");
+    if (p.length !== 4) return false;
+    return p.every(function(n){
+      return /^\d{1,3}$/.test(n) && +n >= 0 && +n <= 255;
+    });
   }
 
-  const params = new URLSearchParams({ radius: radius });
-  if (clientId) params.append('os_id', clientId);
-  if (clientSecret) params.append('os_secret', clientSecret);
-
-  status.className = 'ok';
-  status.textContent = 'Sending to device...';
-
-  // A full browser navigation (not fetch/XHR, not a <form> POST) is what
-  // actually works crossing from this HTTPS page to the device's plain
-  // HTTP local address:
-  //   - a background fetch() gets silently blocked by mixed-content
-  //     policy ("couldn't reach the device", not an actual network issue)
-  //   - a real <form> submission throws up a blocking "this connection
-  //     is not secure" warning page before it'll continue
-  //   - a plain navigation via window.location.href does neither — the
-  //     browser just treats it like following a normal link
-  window.location.href = 'http://' + ip + '/configure?' + params.toString();
-}
-
-function clearOpenSky() {
-  const ip = document.getElementById('deviceIp').value.trim();
-  if (!ip) {
-    document.getElementById('status').className = 'err';
-    document.getElementById('status').textContent = 'Enter the device IP address shown on the radar first.';
-    return;
+  function num(v){
+    v = (v || "").trim();
+    if (!v || !/^-?\d*\.?\d+$/.test(v)) return null;
+    return parseFloat(v);
   }
-  if (!confirm('Switch back to basic mode? This removes the saved OpenSky account from this device.')) return;
-  window.location.href = 'http://' + ip + '/clear-opensky';
-}
+
+  function coords(){
+    var la = num(latIn.value), lo = num(lonIn.value);
+    if (la === null || lo === null) return null;
+    if (la < -90 || la > 90) return null;
+    if (lo < -180 || lo > 180) return null;
+    if (la === 0 && lo === 0) return null;
+    return {lat: la, lon: lo};
+  }
+
+  /* ---------- State ---------- */
+
+  function refresh(){
+    var ipOk = validIp(ipIn.value);
+    var cc = coords();
+
+    el("strip-ip").dataset.done = ipOk ? "true" : "false";
+    el("strip-loc").dataset.done = cc ? "true" : "false";
+    ipIn.setAttribute("aria-invalid", (ipIn.value.trim() && !ipOk) ? "true" : "false");
+
+    var ipMsg = el("ip-msg");
+    if (ipIn.value.trim() && !ipOk){
+      ipMsg.innerHTML = "<span>That doesn't look like a network address. " +
+        "It should be four numbers separated by dots, like <b>192.168.1.42</b>.</span>";
+      ipMsg.hidden = false;
+    } else {
+      ipMsg.hidden = true;
+    }
+
+    /* The failure that actually happens: a longitude typed without its
+       minus sign. It sends the search to the far side of the planet, the
+       radar correctly finds nothing, and the device looks broken. Catch it
+       here, before it ever reaches the hardware. */
+    /* A positive longitude is perfectly valid — for Europe, Africa, Asia
+       and Australia. So this warns and offers a one-tap correction rather
+       than blocking: somebody genuinely in Berlin can ignore it, and the
+       far more common case of a dropped minus sign is fixed in one tap.
+       Only the button's label is rewritten here, never the container's
+       markup: rebuilding the innerHTML on each refresh replaced the button
+       mid-click (clicking it blurs the longitude field, which re-runs this
+       function) and the click landed on a detached node. */
+    var lo = num(lonIn.value);
+    var mm = el("minus-msg");
+    var suspect = (lo !== null && lo > 0 && lo < 100);
+    if (suspect) el("fixlon").textContent = "Change it to " + (-lo);
+    mm.hidden = !suspect;
+
+    placed = !!cc;
+    if (cc){
+      readout.textContent = cc.lat.toFixed(4) + ", " + cc.lon.toFixed(4);
+      readout.dataset.empty = "false";
+    } else {
+      readout.textContent = "no position set";
+      readout.dataset.empty = "true";
+    }
+    draw();
+
+    sendBtn.disabled = !(ipOk && cc);
+
+    var sl = el("settings-link");
+    if (ipOk){
+      el("settings-a").href = "http://" + ipIn.value.trim() + "/settings";
+      sl.hidden = false;
+    } else {
+      sl.hidden = true;
+    }
+
+    if (ipOk){
+      try { localStorage.setItem("blr.ip", ipIn.value.trim()); } catch(e){}
+    }
+  }
+
+  ["input","change","blur"].forEach(function(ev){
+    [ipIn, latIn, lonIn].forEach(function(f){ f.addEventListener(ev, refresh); });
+  });
+
+  /* Attached once, reading the field's live value at click time rather than
+     a captured one. */
+  el("fixlon").addEventListener("click", function(){
+    var lo = num(lonIn.value);
+    if (lo !== null && lo > 0) lonIn.value = String(-lo);
+    refresh();
+  });
+
+  try {
+    var saved = localStorage.getItem("blr.ip");
+    if (saved) ipIn.value = saved;
+  } catch(e){}
+
+  /* ---------- Radius ---------- */
+
+  el("rng").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-r]");
+    if (!b) return;
+    radius = +b.dataset.r;
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function(x){
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    draw();
+  });
+
+  /* ---------- Geolocation ----------
+     This is the one thing this page can do that the radar's own pages
+     cannot. Browsers only expose geolocation over HTTPS, and the device
+     serves plain HTTP on the local network, so a precise fix has to be
+     collected here and handed over. */
+
+  el("locate").addEventListener("click", function(){
+    var btn = this, m = el("loc-msg");
+
+    if (!navigator.geolocation){
+      m.className = "msg caution";
+      m.innerHTML = "<span>This browser can't share a location. Type your " +
+        "coordinates below instead.</span>";
+      m.hidden = false;
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Getting a fix…";
+    m.hidden = true;
+
+    navigator.geolocation.getCurrentPosition(function(pos){
+      latIn.value = pos.coords.latitude.toFixed(6);
+      lonIn.value = pos.coords.longitude.toFixed(6);
+      btn.disabled = false;
+      btn.textContent = "Use my exact location";
+      m.className = "msg ok";
+      m.innerHTML = "<span>Got it &mdash; accurate to about " +
+        Math.round(pos.coords.accuracy) + " m.</span>";
+      m.hidden = false;
+      refresh();
+    }, function(err){
+      btn.disabled = false;
+      btn.textContent = "Use my exact location";
+      m.className = "msg caution";
+      m.innerHTML = (err.code === 1)
+        ? "<span>Location sharing is switched off for this page. Turn it on " +
+          "in your browser settings, or type your coordinates below.</span>"
+        : "<span>Couldn't get a fix just now. Type your coordinates below " +
+          "instead.</span>";
+      m.hidden = false;
+    }, {enableHighAccuracy:true, timeout:12000, maximumAge:0});
+  });
+
+  /* ---------- Send ----------
+     A full page navigation, not fetch() and not a form POST. Those are the
+     two obvious approaches and both fail crossing from this HTTPS page to
+     the device's plain HTTP address: fetch is blocked outright by
+     mixed-content policy, and a real form POST raises an "insecure form"
+     interstitial. A top-level GET navigation is the one route that works,
+     which is why the radar accepts these settings on a GET. */
+
+  sendBtn.addEventListener("click", function(){
+    var cc = coords();
+    if (!validIp(ipIn.value) || !cc) return;
+
+    var url = "http://" + ipIn.value.trim() + "/configure" +
+              "?radius=" + encodeURIComponent(radius) +
+              "&lat=" + encodeURIComponent(cc.lat) +
+              "&lon=" + encodeURIComponent(cc.lon);
+
+    var sm = el("send-msg");
+    sm.innerHTML = "<span>Sending &mdash; your radar will confirm on the " +
+      "next screen, then re-centre within a few seconds.</span>";
+    sm.hidden = false;
+
+    el("fallback-url").textContent = url;
+    el("fallback").hidden = false;
+
+    window.location.href = url;
+  });
+
+  refresh();
+})();
 </script>
-
 </body>
 </html>
