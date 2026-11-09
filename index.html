@@ -279,12 +279,13 @@
     cursor:pointer;
   }
   details.where summary:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
-  details.where ol{
+  details.where ol,
+  details.where p{
     margin:10px 0 0;
-    padding-left:20px;
     font-size:14px;
     color:var(--paper-soft);
   }
+  details.where ol{padding-left:20px}
   details.where li{margin-bottom:5px}
   details.where code{
     font-family:var(--f-data);
@@ -351,12 +352,13 @@
 
   <header class="mast">
     <h1>Point your radar at the right patch of sky.</h1>
-    <p class="lead">Your Desk Radar guesses where it is from your internet
-      connection. That guess is usually close, but it can land on your
-      provider's equipment in another town &mdash; which is why some people
-      see the wrong city's aircraft.</p>
-    <p>Set your exact position here and it stays set. Most people never need
-      this page.</p>
+    <p class="lead">Your radar is already tracking. This is the step that
+      centers it on you &mdash; about thirty seconds, and it stays set.</p>
+    <p>It works out roughly where it is from your internet connection.
+      That's usually close, but it can land on your provider's equipment in
+      another town, which is how a radar ends up showing a different city's
+      aircraft. Setting your exact position here replaces that guess for
+      good.</p>
   </header>
 
   <!-- Step markers are flight-strip status bars: the left edge lights when
@@ -374,12 +376,13 @@
       <div class="msg caution" id="ip-msg" hidden></div>
       <details class="where">
         <summary>Where do I find it?</summary>
+        <p>If you've just connected your radar to WiFi, it's on the screen
+          in front of you, under step 2.</p>
+        <p>Otherwise:</p>
         <ol>
           <li>Tap the gear icon at the bottom-left of the radar screen.</li>
           <li>Tap <b>Info &amp; Credits</b>.</li>
-          <li>The screen shows an address like
-            <code>http://192.168.1.42/settings</code> &mdash; you only need
-            the numbers.</li>
+          <li>Read the number next to <b>Device</b>.</li>
         </ol>
       </details>
     </div>
@@ -389,8 +392,8 @@
     <div class="strip-mark" aria-hidden="true"></div>
     <div>
       <h2>Your location</h2>
-      <p class="hint">The centre of the radar. Letting your browser supply it
-        is accurate to a few metres and takes one tap.</p>
+      <p class="hint">The center of the radar. Letting your browser supply it
+        is accurate to a few meters and takes one tap.</p>
 
       <button class="btn-locate" id="locate" type="button">Use my exact location</button>
       <div class="msg" id="loc-msg" hidden></div>
@@ -766,7 +769,7 @@
 
     var sm = el("send-msg");
     sm.innerHTML = "<span>Sending &mdash; your radar will confirm on the " +
-      "next screen, then re-centre within a few seconds.</span>";
+      "next screen, then re-center within a few seconds.</span>";
     sm.hidden = false;
 
     el("fallback-url").textContent = url;
