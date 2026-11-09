@@ -230,6 +230,11 @@
      wrap onto a second line and broke the row's rhythm, and these are
      bigger tap targets besides. */
   .rng{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .rng.two{grid-template-columns:repeat(2,1fr)}
+  .rng.two button{font-family:var(--f-cond);font-size:16px;font-weight:500}
+  #wx-manual{margin-top:14px}
+  #wx-manual[hidden]{display:none}
+  #metar{text-transform:uppercase;letter-spacing:.14em}
   .rng button{
     padding:13px 4px;
     background:var(--scope-raised);
@@ -317,6 +322,26 @@
     color:var(--phosphor);
     word-break:break-all;
   }
+
+  /* Destructive action, kept well away from the primary flow and given no
+     button of its own — a plain link is the right weight for something
+     nobody should reach for by accident. The device shows its own
+     confirmation screen before anything is actually erased. */
+  .danger{
+    margin-top:40px;
+    padding-top:24px;
+    border-top:1px solid var(--rule);
+  }
+  .danger h2{
+    font-family:var(--f-cond);
+    font-weight:600;
+    font-size:17px;
+    color:var(--paper-soft);
+    margin:0 0 8px;
+  }
+  .danger p{font-size:14px;color:var(--paper-soft);margin:0 0 10px;max-width:44ch}
+  .danger a{color:var(--caution)}
+  .danger[hidden]{display:none}
 
   /* ---------- Footer ---------- */
 
@@ -436,6 +461,38 @@
     </div>
   </section>
 
+  <section class="strip" id="strip-wx" data-done="true">
+    <div class="strip-mark" aria-hidden="true"></div>
+    <div>
+      <h2>Weather station</h2>
+      <p class="hint">Conditions come from the nearest airport that reports
+        them, which the radar finds on its own once it knows where you are.
+        Pick your own if you'd rather have a particular one.</p>
+
+      <div class="rng two" id="wx" role="group" aria-label="Weather station">
+        <button type="button" data-wx="auto" aria-pressed="true">Nearest to me</button>
+        <button type="button" data-wx="manual" aria-pressed="false">Choose my own</button>
+      </div>
+
+      <div id="wx-manual" hidden>
+        <label class="fld" for="metar">Station code</label>
+        <input type="text" id="metar" maxlength="4" autocomplete="off"
+               autocapitalize="characters" spellcheck="false"
+               placeholder="KMHT" aria-describedby="wx-msg">
+        <div class="msg caution" id="wx-msg" hidden></div>
+        <details class="where">
+          <summary>What's a station code?</summary>
+          <p>Four letters identifying an airport that publishes weather
+            readings. Your nearest large airport almost always does.</p>
+          <p>In the United States they start with K &mdash; KMHT is
+            Manchester, KCON is Concord, KSEA is Seattle. Canada starts with
+            C, Alaska and Hawaii with P. If you're unsure, leave this on
+            "Nearest to me" and the radar will work it out.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
   <section class="strip" data-done="true">
     <div class="strip-mark" aria-hidden="true"></div>
     <div>
@@ -461,11 +518,15 @@
       jump to your home network. Paste this into a new tab instead:
       <span class="url" id="fallback-url"></span>
     </p>
-    <p class="fallback" id="settings-link" hidden>
-      Everything else &mdash; weather station, WiFi &mdash; lives on
-      <a href="#" id="settings-a">your radar's settings page</a>.
-    </p>
   </div>
+
+  <section class="danger" id="net-zone" hidden>
+    <h2>Moving to a different WiFi network?</h2>
+    <p>This disconnects the radar and restarts it in setup mode, so you can
+      join it to another network the same way you did the first time. Your
+      location, station and radius are kept.</p>
+    <p><a href="#" id="forget-a">Forget this WiFi network</a></p>
+  </section>
 
   <footer>
     <p>Your radar reaches these services directly from your own network.
@@ -664,12 +725,26 @@
 
     sendBtn.disabled = !(ipOk && cc);
 
-    var sl = el("settings-link");
+    /* The WiFi link points at a confirmation page the DEVICE serves, not
+       at anything that erases on sight. A bare URL that wiped WiFi could
+       fire from a bookmark, a refresh or a link prefetch. */
+    var nz = el("net-zone");
     if (ipOk){
-      el("settings-a").href = "http://" + ipIn.value.trim() + "/settings";
-      sl.hidden = false;
+      el("forget-a").href = "http://" + ipIn.value.trim() + "/forget-wifi";
+      nz.hidden = false;
     } else {
-      sl.hidden = true;
+      nz.hidden = true;
+    }
+
+    /* Station code: four letters or digits, or nothing at all. */
+    var wm = el("wx-msg");
+    var mv = (el("metar").value || "").trim();
+    if (wxMode === "manual" && mv.length > 0 && !/^[A-Za-z0-9]{4}$/.test(mv)){
+      wm.innerHTML = "<span>A station code is exactly four characters, " +
+        "like <b>KMHT</b>.</span>";
+      wm.hidden = false;
+    } else {
+      wm.hidden = true;
     }
 
     if (ipOk){
@@ -695,6 +770,24 @@
   } catch(e){}
 
   /* ---------- Radius ---------- */
+
+  /* ---------- Weather station ---------- */
+
+  var wxMode = "auto";
+
+  el("wx").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-wx]");
+    if (!b) return;
+    wxMode = b.dataset.wx;
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function(x){
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    el("wx-manual").hidden = (wxMode !== "manual");
+    if (wxMode === "manual") el("metar").focus();
+    refresh();
+  });
+
+  el("metar").addEventListener("input", refresh);
 
   el("rng").addEventListener("click", function(e){
     var b = e.target.closest("button[data-r]");
@@ -766,6 +859,16 @@
               "?radius=" + encodeURIComponent(radius) +
               "&lat=" + encodeURIComponent(cc.lat) +
               "&lon=" + encodeURIComponent(cc.lon);
+
+    /* Everything travels in one request. "auto" explicitly re-detects the
+       nearest station rather than leaving it implied, so the outcome is
+       the same whether or not the location also changed. */
+    var mv = (el("metar").value || "").trim().toUpperCase();
+    if (wxMode === "manual" && /^[A-Z0-9]{4}$/.test(mv)){
+      url += "&metar=" + encodeURIComponent(mv);
+    } else {
+      url += "&metar=auto";
+    }
 
     var sm = el("send-msg");
     sm.innerHTML = "<span>Sending &mdash; your radar will confirm on the " +
